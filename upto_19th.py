@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import base64
+import bcrypt
 
 from streamlit_js_eval import get_geolocation
 
@@ -13,8 +14,20 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import io
 
-# REVERSE GEOCODING USING OPENSTREETMAP (NOMINATIM)
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = b"$2b$12$MPJl2FrXIPEqqkcP3oS/v.pHal3PeviaZZCIHyOMQQ/qYHpZmQWUO"
 
+# ---------------------------------------------------------------
+# REVERSE GEOCODING USING OPENSTREETMAP (NOMINATIM)
+# ---------------------------------------------------------------
+# This function takes latitude & longitude and returns:
+# {
+#     "city": "...",
+#     "state": "...",
+#     "country": "..."
+# }
+# If lookup fails, returns None safely.
+# ---------------------------------------------------------------
 def reverse_geocode(lat, lon, zoom=18, language="en"):
     """
     Improved reverse geocode using Nominatim with:
@@ -70,7 +83,9 @@ def reverse_geocode(lat, lon, zoom=18, language="en"):
         return None
 
 
+# ---------------------------------------------------------------
 # GOOGLE DRIVE MUSIC INTEGRATION
+# ---------------------------------------------------------------
 
 VIBE_FOLDER_MAP = {
     # granular folder names (use these exact keys when looking up Drive folders)
@@ -88,6 +103,7 @@ VIBE_FOLDER_MAP = {
     "spiritual": "1wuwW1EgQwIDMPJWO9ZoyFs3ac2aG9I2p",
     "temple-town": "1XCIZPvp2XZOziQsXl51O1n8pe0qLtoo5",
     "urban": "1cEZ9dq7mR4I4Baj-mozk21pgNAlTqcMk",
+    "intense":"1kHW6WQg2ZeC8UxpueuynIANFALg6jzlX",
     
 }
 
@@ -173,7 +189,6 @@ def list_songs_for_vibe(vibe_label: str):
         request = service.files().get_media(fileId=file_id)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
-
         done = False
         while not done:
             status, done = downloader.next_chunk()
@@ -185,7 +200,12 @@ def list_songs_for_vibe(vibe_label: str):
     return songs
 
 
+
+
+
+# -------------------------------
 # BACKGROUND IMAGE
+# -------------------------------
 def set_background_image(image_file: str, offset_y: str = "0px"):
     """
     Sets the background image with a vertical offset so that
@@ -206,6 +226,17 @@ def set_background_image(image_file: str, offset_y: str = "0px"):
                 background-size: cover;
                 background-position: center {offset_y};
                 background-attachment: fixed;
+
+                animation: bgZoom 20s ease-in-out infinite alternate;
+            }}
+
+            @keyframes bgZoom {{
+                0% {{
+                    background-size: 100%;
+                }}
+                100% {{
+                    background-size: 110%;
+                }}
             }}
             </style>
             """,
@@ -215,8 +246,9 @@ def set_background_image(image_file: str, offset_y: str = "0px"):
         st.error(f"Background image error: {e}")
 
 
-
+# -------------------------------
 # LOAD MODEL
+# -------------------------------
 vibe_model = None
 encoder = None
 emoji_map = {}
@@ -253,9 +285,9 @@ except Exception as e:
     emoji_map = {}
 
 
- 
+# -------------------------------
 # VIBE PREDICTION
-
+# -------------------------------
 def predict_vibe(lat, lon):
     if vibe_model is None or encoder is None:
         st.error("KNN model or encoder could not be loaded.")
@@ -269,14 +301,114 @@ def predict_vibe(lat, lon):
     except Exception as e:
         st.error(f"Prediction error: {e}")
         return None
+    
+# -------------------------------
+# Detect Weather
+# -------------------------------
 
+import requests
 
+API_KEY = "d88b94316ad15e3f1cc9e8457ce34d3b"
+
+def get_current_weather(lat, lon):
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+    response = requests.get(url)
+    data = response.json()
+
+    weather_info = {
+        "temperature": data["main"]["temp"],
+        "humidity": data["main"]["humidity"],
+        "wind_speed": data["wind"]["speed"],
+        "weather_main": data["weather"][0]["main"],  # Rain, Clear, Clouds etc.
+        "description": data["weather"][0]["description"]
+    }
+
+    return weather_info
+
+def normalize_weather(main_weather):
+    main_weather = main_weather.lower()
+
+    # Clear / Sunny
+    if "clear" in main_weather:
+        return "sunny"
+
+    # Clouds
+    elif "cloud" in main_weather:
+        return "cloudy"
+
+    # Rain types
+    elif "rain" in main_weather or "drizzle" in main_weather:
+        return "rainy"
+
+    # Thunderstorm
+    elif "thunder" in main_weather:
+        return "storm"
+
+    # Snow / cold
+    elif "snow" in main_weather:
+        return "cold"
+
+    # Fog / Mist / Haze / Smoke (visibility issues)
+    elif (
+        "mist" in main_weather or
+        "fog" in main_weather or
+        "haze" in main_weather or
+        "smoke" in main_weather
+    ):
+        return "foggy"
+
+    # Dust / Sand / Ash (dry harsh weather)
+    elif (
+        "dust" in main_weather or
+        "sand" in main_weather or
+        "ash" in main_weather
+    ):
+        return "dry"
+
+    # Extreme wind conditions
+    elif "squall" in main_weather:
+        return "windy"
+
+    # Tornado / extreme
+    elif "tornado" in main_weather:
+        return "extreme"
+
+    else:
+        return "unknown"
+
+# -------------------------------
+# WEATHER TO MOOD MAPPING
+# -------------------------------
+
+WEATHER_TO_MOOD = {
+    "sunny": "energetic",
+    "cloudy": "calm",
+    "rainy": "romantic",
+    "storm": "intense",
+    "foggy": "thoughtful",
+    "cold": "cozy",
+    "dry": "tired",
+    "windy": "free",
+    "extreme": "tense",
+    "unknown": "neutral"
+}
+
+def get_mood_from_weather(weather_category):
+    return WEATHER_TO_MOOD.get(weather_category, "calm")
+
+# -------------------------------
 # LOGIN CHECK
+# -------------------------------
 def login(username, password):
-    return username == "admin" and password == "123"
+    if username != ADMIN_USERNAME:
+        return False
+    
+    return bcrypt.checkpw(password.encode(), ADMIN_PASSWORD_HASH)
 
 
+# -------------------------------
 # CUSTOM CSS
+# -------------------------------
 def apply_custom_css(logged_in):
     if not logged_in:
         # LOGIN PAGE STYLES
@@ -460,7 +592,9 @@ def apply_custom_css(logged_in):
         )
 
 
+# -------------------------------
 # MAIN APP
+# -------------------------------
 def main():
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
@@ -493,7 +627,7 @@ def main():
         st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    #AFTER LOGIN (FULL WEBSITE)
+    # --------- AFTER LOGIN (FULL WEBSITE) ---------
     set_background_image("inside_pages.png", offset_y="0px")
     apply_custom_css(logged_in=True)
     st.markdown("""
@@ -557,13 +691,21 @@ def main():
 
     # SIDEBAR
     menu = st.sidebar.radio(
-        "Navigation", ["Home", "Location", "Playlist", "Membership", "Logout"]
-    )
-
+    "Navigation",
+    [
+        "Home",
+        "Location",
+        "Geo-Tunes",
+        "Weather",
+        "Atmos-Tunes",
+        "Membership",
+        "Logout"
+    ]
+)
     # CARD DECORATOR
     def card_wrap(func):
         def wrapped():
-            st.markdown('<div class="card">', unsafe_allow_html=True)
+            #st.markdown('<div class="card">', unsafe_allow_html=True)
             func()
             st.markdown("</div>", unsafe_allow_html=True)
         return wrapped
@@ -616,7 +758,9 @@ def main():
                 lat = coords.get("latitude")
                 lon = coords.get("longitude")
 
+            # -------------------------------
             # CASE 1: Browser geolocation SUCCESS
+            # -------------------------------
             if lat is not None and lon is not None:
 
                 st.success(f"Browser geolocation: {lat}, {lon}")
@@ -653,15 +797,15 @@ def main():
                     country = components.get("country") or "Not available"
 
                     st.info(f"""
-                Full Address:  
+                *Full Address:*  
                 {full_addr}
 
                 ### Detailed Address:
-                - Neighbourhood: {neighbourhood}
-                - Postcode: {postcode}
-                - City: {city}
-                - State: {state}
-                - Country: {country}
+                - *Neighbourhood:* {neighbourhood}
+                - *Postcode:* {postcode}
+                - *City:* {city}
+                - *State:* {state}
+                - *Country:* {country}
                 """)
 
 
@@ -678,7 +822,9 @@ def main():
                 else:
                     st.error("Couldn't predict vibe from browser coordinates.")
 
+            # -------------------------------
             # CASE 2: Browser Geolocation FAILED → Manual Coordinates
+            # -------------------------------
             else:
                 st.warning(
                     "Browser geolocation unavailable or permission denied. "
@@ -722,15 +868,15 @@ def main():
                             country = components.get("country") or "Not available"
 
                             st.info(f"""
-                        Full Address:  
+                        *Full Address:*  
                         {full_addr}
 
                         ### Detailed Address:
-                        - Neighbourhood: {neighbourhood}
-                        - Postcode: {postcode}
-                        - City: {city}
-                        - State: {state}
-                        - Country: {country}
+                        - *Neighbourhood:* {neighbourhood}
+                        - *Postcode:* {postcode}
+                        - *City:* {city}
+                        - *State:* {state}
+                        - *Country:* {country}
                         """)
 
 
@@ -785,6 +931,68 @@ def main():
             st.markdown("</div></div>", unsafe_allow_html=True)
 
     @card_wrap
+    def page_weather():
+        st.markdown("### Current Weather")
+
+        loc = get_geolocation()
+
+        lat = None
+        lon = None
+
+        if isinstance(loc, dict) and "coords" in loc:
+            lat = loc["coords"].get("latitude")
+            lon = loc["coords"].get("longitude")
+
+        if lat and lon:
+            weather_data = get_current_weather(lat, lon)
+
+            weather_category = normalize_weather(weather_data["weather_main"])
+            mood = get_mood_from_weather(weather_category)
+
+            st.session_state.weather_mood = mood
+
+            st.info(f"Temperature: {weather_data['temperature']}°C")
+            st.info(f"Weather: {weather_data['description']}")
+            st.success(f"Detected Weather Type: {weather_category}")
+            st.success(f"Predicted Mood: {mood}")
+
+        else:
+            st.warning("Unable to detect location for weather.")
+
+    @card_wrap
+    def page_atmos():
+        st.markdown("### Atmos-Tunes (Weather Based)")
+
+        mood = st.session_state.get("weather_mood", None)
+
+        if not mood:
+            st.warning("Please check Weather section first.")
+            return
+
+        st.info(f"Using mood: {mood}")
+
+        # OPTIONAL: If you want mood-based folders,
+        # you can create MOOD_FOLDER_MAP.
+        # For now we reuse vibe folder logic if names match.
+
+        songs = list_songs_for_vibe(mood)
+
+        if not songs:
+            st.error("No songs found for this mood.")
+            return
+
+        for s in songs:
+            st.markdown(f"""
+            <div class="track-card">
+                <div class="track-title">{s['name']}</div>
+                <div class="audio-wrapper">
+            """, unsafe_allow_html=True)
+
+            st.audio(s["bytes"])
+
+            st.markdown("</div></div>", unsafe_allow_html=True)
+
+    @card_wrap
     def page_membership():
         st.markdown("### Premium Membership")
         st.markdown(
@@ -826,8 +1034,12 @@ def main():
         page_home()
     elif menu == "Location":
         page_location()
-    elif menu == "Playlist":
+    elif menu == "Geo-Tunes":
         page_playlist()
+    elif menu == "Weather":
+        page_weather()
+    elif menu == "Atmos-Tunes":
+        page_atmos()
     elif menu == "Membership":
         page_membership()
     elif menu == "Logout":
@@ -837,5 +1049,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()
