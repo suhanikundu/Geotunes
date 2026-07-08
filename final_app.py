@@ -1006,34 +1006,142 @@ def main():
 
         @card_wrap
         def page_home():
-            st.markdown("### Welcome to Your Music Journey!")
-            st.write(
-                "Discover music that matches your vibe based on your location. "
-                "Use the sidebar to detect your location and generate personalized playlists."
+
+            st.markdown(
+                """
+                <style>
+
+                /* center all home text */
+                .home-container {
+                    text-align:center;
+                }
+
+                /* center streamlit image */
+                div[data-testid="stImage"] {
+                    display:flex;
+                    justify-content:center;
+                    align-items:center;
+                    margin-left:120px;
+                }
+
+                div[data-testid="stImage"] img {
+                    border-radius:25px;
+                    box-shadow:0px 8px 20px rgba(0,0,0,0.25);
+                }
+
+                div[data-testid="stImage"] p {
+                    text-align:center;
+                }
+
+                .features {
+                    width:800px;
+                    margin:auto;
+                    text-align:left;
+                    font-size:17px;
+                }
+
+                </style>
+                """,
+                unsafe_allow_html=True
             )
+
+
+            st.markdown(
+                """
+                <div class="home-container">
+
+                <h2>Welcome to Your Music Journey!</h2>
+
+                <p>
+                Discover music that matches your vibe based on your location.
+                Use the sidebar to detect your location and generate personalized playlists.
+                </p>
+
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+
             st.image(
                 "audio.jpg",
                 caption="Explore the world through music!",
-                use_container_width=True
+                width=420
             )
-            st.markdown("Features:")
-            st.markdown("-  Location-based vibe detection")
-            st.markdown("-  Google Drive–based playlists")
-            st.markdown("-  Multi-language / multi-vibe support")
+
+
+            st.markdown(
+                """
+                <div class="features">
+
+                <b>Features:</b>
+
+                • Location-based vibe detection <br><br>
+                • Atmosphere-based vibe detection <br><br>
+                • Google Drive based song recommendation <br><br>
+                • Spotify based song recommendation <br><br>
+                • Multi-language / multi-vibe support <br><br>
+                • Membership for premium features <br><br>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
         @card_wrap
         def page_location():
-            st.markdown("###  Detect Your Location & Vibe")
-            st.write(
-                "We'll attempt to use your browser's Geolocation API (you'll be prompted to allow). "
-                "If you deny permission or it's unavailable, please enter coordinates manually."
+
+            st.markdown(
+                """
+                <style>
+
+                .location-container {
+                    text-align:center;
+                }
+
+                div[data-testid="stImage"] {
+                    display:flex;
+                    justify-content:center;
+                    align-items:center;
+                    margin-left:120px;
+                }
+
+                div[data-testid="stImage"] img {
+                    border-radius:25px;
+                    box-shadow:0px 8px 20px rgba(0,0,0,0.25);
+                }
+
+                div[data-testid="stImage"] p {
+                    text-align:center;
+                }
+
+                </style>
+                """,
+                unsafe_allow_html=True
             )
+
+
+            st.markdown(
+                """
+                <div class="location-container">
+
+                <h2>Detect Your Location & Vibe</h2>
+
+                <p>
+                We'll attempt to use your browser's Geolocation API 
+                (you'll be prompted to allow). 
+                If you deny permission or it's unavailable, please enter coordinates manually.
+                </p>
+
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
 
             st.image(
                 "https://images.unsplash.com/photo-1524661135-423995f22d0b"
                 "?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-                caption="Location Detection",
-                width=400
+                width=420
             )
 
             loc = get_geolocation()
@@ -1338,7 +1446,60 @@ def main():
 
         @card_wrap
         def page_weather():
-            st.markdown("### Current Weather")
+
+            st.markdown(
+                """
+                <style>
+
+                .weather-container {
+                    text-align:center;
+                }
+
+                div[data-testid="stImage"] {
+                    display:flex;
+                    justify-content:center;
+                    align-items:center;
+                    margin-left:120px;
+                }
+
+                div[data-testid="stImage"] img {
+                    border-radius:25px;
+                    box-shadow:0px 8px 20px rgba(0,0,0,0.25);
+                }
+
+                div[data-testid="stImage"] p {
+                    text-align:center;
+                }
+
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+
+            st.markdown(
+                """
+                <div class="weather-container">
+
+                <h2>Current Weather</h2>
+
+                <p>
+                Detect your current atmosphere and discover music
+                that matches your weather mood.
+                </p>
+
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+
+            st.image(
+                "weatherr.jpg",
+                caption="Weather Based Mood Detection",
+                width=420
+            )
+
 
             loc = get_geolocation()
 
